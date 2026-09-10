@@ -186,18 +186,39 @@ void TrajLoOdometry::onLidarObservation(const mrpt::obs::CObservation::ConstPtr 
   }
 
   double t_beg = 0, t_end = 0;
-  bool usedPerPointTimes = false;
-  auto cloud = toTrajLoCloud(*pc, fallback_scan_period_, t_beg, t_end, usedPerPointTimes);
+  ScanTimeSource timeSource = ScanTimeSource::AzimuthFallback;
+  auto cloud = toTrajLoCloud(*pc, fallback_scan_period_, t_beg, t_end, timeSource);
 
-  // Logged once: a continuous-time method run off synthesized azimuth times
-  // is a large, silent accuracy loss, so which path is taken must be visible.
+  // Logged once: a continuous-time method run off synthesized azimuth times is
+  // a large, silent accuracy loss, so which path is taken must be visible.
   if (!logged_time_source_) {
     logged_time_source_ = true;
-    MRPT_LOG_INFO_STREAM(
-      "Per-point timestamps: "
-      << (usedPerPointTimes ? "taken from the cloud's own time field"
-                            : "NOT present, synthesized from azimuth over fallback_scan_period=" +
-                                std::to_string(fallback_scan_period_) + " s"));
+    switch (timeSource) {
+      case ScanTimeSource::PerPointRelative:
+        MRPT_LOG_INFO("Per-point timestamps: the cloud's own time field (scan-relative offsets).");
+        break;
+      case ScanTimeSource::PerPointAbsolute:
+        MRPT_LOG_INFO("Per-point timestamps: the cloud's own time field (absolute times).");
+        break;
+      case ScanTimeSource::AzimuthFallback:
+        MRPT_LOG_WARN_FMT(
+          "Per-point timestamps: none in the cloud, synthesizing them from azimuth over "
+          "fallback_scan_period=%.3f s. Traj-LO is a continuous-time method, so real per-point "
+          "times are worth having when the sensor publishes them.",
+          fallback_scan_period_);
+        break;
+      case ScanTimeSource::AzimuthAfterUnusableField:
+        MRPT_LOG_WARN_FMT(
+          "Per-point timestamps: the cloud HAS a time field, but it carries no usable "
+          "intra-sweep timing (every point on one value, or a span below the field's own "
+          "resolution). Falling back to azimuth over fallback_scan_period=%.3f s. Common causes: "
+          "the field holds absolute Unix times, which MRPT's float32 buffer cannot resolve to "
+          "better than ~128 s; or the dataset reader could not decode the field's datatype and "
+          "left it at zero. Both are worth fixing in the reader, since this method segments each "
+          "sweep on these times.",
+          fallback_scan_period_);
+        break;
+    }
   }
 
   // This only pushes into Traj-LO's own bounded queue; its processing thread
@@ -214,6 +235,7 @@ void TrajLoOdometry::drainAndPublish()
   if (!core_) {
     return;
   }
+  auto lck = mrpt::lockHelper(publish_mtx_);
   for (const auto & out : core_->drainReady()) {
     publishOutput(out);
   }

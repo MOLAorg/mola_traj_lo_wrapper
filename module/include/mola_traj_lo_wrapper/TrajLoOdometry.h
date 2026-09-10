@@ -138,6 +138,12 @@ private:
   mutable std::mutex trajectory_mtx_;
   mrpt::poses::CPose3DInterpolator trajectory_;
 
+  /// Serializes drainAndPublish(). Poses are drained both from the thread that
+  /// feeds observations and from this module's own spinOnce(), and publishing
+  /// touches state that is not otherwise locked (the 3-D path, the last drawn
+  /// map snapshot).
+  std::mutex publish_mtx_;
+
   std::atomic_bool shutdown_cleanup_done_{false};
   std::atomic_bool map_snapshots_enabled_{false};
 

@@ -23,10 +23,30 @@
 
 namespace mola
 {
+/** Where a converted scan's per-point times came from. Reported out of
+ * toTrajLoCloud() so the module can log it once: Traj-LO is a continuous-time
+ * method, so per-point timing is the input it segments on, and silently taking
+ * the wrong path costs accuracy without failing.
+ */
+enum class ScanTimeSource
+{
+  /// The cloud's own time field, holding offsets relative to the scan.
+  PerPointRelative,
+  /// The cloud's own time field, holding absolute times on the sensor clock.
+  PerPointAbsolute,
+  /// No time field at all: offsets synthesized from each point's azimuth.
+  AzimuthFallback,
+  /// There was a time field, but it carried no usable intra-sweep information:
+  /// every point of the scan had collapsed onto one value, or the span it
+  /// covered was too small for the field's own resolution. Offsets synthesized
+  /// from azimuth, as above.
+  AzimuthAfterUnusableField,
+};
+
 /** See the .cpp file for the full documentation of the conversion logic. */
 traj_lo_core::LidarPointVector toTrajLoCloud(
   const mrpt::obs::CObservationPointCloud & obs, double fallback_scan_period, double & t_beg,
-  double & t_end, bool & usedPerPointTimes);
+  double & t_end, ScanTimeSource & timeSource);
 
 mrpt::maps::CPointsMap::Ptr toMrptPointsMap(const traj_lo_core::XYZIPointVector & points);
 

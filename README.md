@@ -245,20 +245,38 @@ sets it to `0 0 0.124 180 0 0`; the other pipelines leave it at identity.
 
 ### Per-point timestamps
 
-Traj-LO is a continuous-time method, so per-point timing *is* the input it
-segments on. Any per-point time field on the incoming cloud is re-normalized
-against that scan's own min/max (the field's convention --- start-relative,
-mid-scan-centered --- does not matter); when there is no such field, each
-point's time is synthesized from its azimuth over `fallback_scan_period`. Which
-of the two paths ran is logged once, at INFO, on the first scan:
+Traj-LO is a continuous-time method, so per-point timing *is* the input it cuts
+each sweep into segments on. It matters more here than in the LiDAR-inertial
+wrappers, where a bad per-point time costs some deskewing accuracy but the IMU
+still carries the motion.
 
-```
-Per-point timestamps: taken from the cloud's own time field
-```
+The adapter handles three cases, and says which one ran, once, on the first
+scan:
 
-If that line reports the azimuth fallback on a sensor that does carry real
-per-point times, the trajectory will be measurably worse and the topic or reader
-configuration is wrong.
+| Log line | What it means |
+|---|---|
+| `the cloud's own time field (scan-relative offsets)` | The normal path. The field's own convention (starting at zero, mid-scan-centered, ...) does not matter: it is re-normalized against that scan's own min/max. |
+| `the cloud's own time field (absolute times)` | The field holds absolute times on the sensor clock; the scan's span is taken from the field rather than from the observation's stamp. |
+| `none in the cloud, synthesizing them from azimuth` (WARN) | No time field. Each point's offset comes from its azimuth over `fallback_scan_period`. Expected on KITTI; on a sensor that does publish per-point times, the topic or reader configuration is wrong. |
+| `HAS a time field, but it carries no usable intra-sweep timing` (WARN) | See below. |
+
+That last case is the one worth knowing about. A time field can be present and
+still be empty of information, and handing a continuous-time estimator a scan of
+zero duration makes every segment of that sweep degenerate --- it then drifts
+without anything failing. Two ways it happens, both seen on real data:
+
+- MRPT holds per-point times as `float`. A field holding **absolute Unix times**
+  near 1.7e9 has a float spacing of about 128 s, so a whole sweep quantizes onto
+  one value.
+- A dataset reader that cannot decode the field's datatype may leave every point
+  at zero. `mrpt::ros1bridge`'s PointCloud2 conversion did exactly this for
+  `FLOAT64` time fields, which is what GrandTour's Hesai publishes --- fixed in
+  [MRPT/mrpt_ros_bridge#9](https://github.com/MRPT/mrpt_ros_bridge/pull/9).
+  Without that fix, this wrapper falls back to azimuth and warns rather than
+  running on zero-duration sweeps, but the real per-point times are better.
+
+Both are caught by requiring the scan's span to cover at least a few
+representable steps of the field itself.
 
 ---
 
