@@ -92,6 +92,27 @@ The **online** module (`mola-cli`) makes no such guarantee: there, scans arrive
 at whatever rate the dataset source or the live sensor delivers them, and a
 dropped or late scan changes the result.
 
+### Reproducible is not the same as stable
+
+Determinism here means *the same input gives the same output*. It does not mean
+the output is insensitive to the input, and on some sequences this method is
+strikingly sensitive: each sweep is segmented on a nanosecond grid, so a
+sub-microsecond shift of the time base can move points across segment
+boundaries and change the trajectory qualitatively.
+
+Measured on two datasets, varying `time_offset` between 1 us and 1 ms with
+everything else identical:
+
+| | APE RMSE spread |
+|---|---|
+| Oxford Spires, observatory-quarter-01 | 0.0447 - 0.0499 m (path length identical to 0.1 m) |
+| GrandTour, a construction-site mission | 0.069 - 3.46 m |
+
+So a single number from a sequence in the second category means very little.
+Before quoting a result on a new sequence, perturb `time_offset` by a few
+microseconds a couple of times and see whether the answer moves; if it does,
+report the spread rather than one run.
+
 ---
 
 ## Running: offline CLI
