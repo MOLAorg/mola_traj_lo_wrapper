@@ -269,11 +269,18 @@ without anything failing. Two ways it happens, both seen on real data:
   near 1.7e9 has a float spacing of about 128 s, so a whole sweep quantizes onto
   one value.
 - A dataset reader that cannot decode the field's datatype may leave every point
-  at zero. `mrpt::ros1bridge`'s PointCloud2 conversion did exactly this for
-  `FLOAT64` time fields, which is what GrandTour's Hesai publishes --- fixed in
-  [MRPT/mrpt_ros_bridge#9](https://github.com/MRPT/mrpt_ros_bridge/pull/9).
-  Without that fix, this wrapper falls back to azimuth and warns rather than
-  running on zero-duration sweeps, but the real per-point times are better.
+  at zero. `mrpt::ros1bridge`'s PointCloud2 conversion does exactly this for
+  `FLOAT64` time fields on its `ros1-mola-vendored` branch (the one
+  `mola_input_rosbag1` vendors), which is what GrandTour's Hesai publishes. Its
+  `ros1` branch already handles it;
+  [MRPT/mrpt_ros_bridge#9](https://github.com/MRPT/mrpt_ros_bridge/pull/9) ports
+  that across. Without it, this wrapper falls back to azimuth and warns rather
+  than running on zero-duration sweeps --- but the real per-point times matter
+  here, so build with that fix for GrandTour.
+
+  Note this is invisible to most consumers: `mp2p_icp`'s `FilterDeskew` treats a
+  zero-span time field as "no timestamps" and simply skips motion compensation.
+  A continuous-time method has no such fallback, which is why it surfaced here.
 
 Both are caught by requiring the scan's span to cover at least a few
 representable steps of the field itself.
