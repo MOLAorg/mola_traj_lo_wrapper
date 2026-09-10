@@ -1,0 +1,98 @@
+# -----------------------------------------------------------------------------
+#                        SLAM system definition for MOLA
+# This file defines:
+# Traj-LO odometry (see mola::TrajLoOdometry) from the Oxford Spires Dataset,
+# read directly from its ROS 2 bag(s) via mola::Rosbag2Dataset.
+#
+# Dataset: Oxford Spires (https://dynamic.robots.ox.ac.uk/datasets/oxford-spires)
+#   /hesai/pandar   sensor_msgs/PointCloud2   Hesai Pandar, ~10 Hz
+# The bags carry no /tf or /tf_static, so use_fixed_sensor_pose is mandatory.
+#
+# Traj-LO is LiDAR-only: unlike this suite's other launch files there is no IMU
+# sensor entry here at all. That is the method, not an omission.
+#
+# The LiDAR sits at the dataset's *base* frame, not the raw LiDAR frame,
+# because that is the frame this dataset's ground truth uses
+# (T_base_lidar = "0 0 0.124 180 0 0", from the dataset's sensor.yaml). An
+# aligned APE barely notices a 180 deg body yaw, but it negates the horizontal
+# part of every relative motion, so relative drift and tilt metrics would
+# measure the frame convention instead of the odometry.
+#
+# No separate state_estimation module: Traj-LO publishes its own pose/map
+# updates directly.
+#
+# Some sequences are split across several ros2bag directories;
+# mola::Rosbag2Dataset accepts a YAML sequence for 'rosbag_filename' and
+# replays them back-to-back, so this file exposes OXFORD_SPIRES_BAG_0..5
+# (unused slots resolve to an empty string and are silently skipped). Use the
+# mola-trajlo-gui-oxford-spires wrapper script to fill these in automatically.
+#
+# Usage (normally invoked through scripts/mola-trajlo-gui-oxford-spires):
+#   OXFORD_SPIRES_BAG_0=$SEQ/raw/ros2bag/<part0>/ \
+#     mola-cli $(ros2 pkg prefix mola_traj_lo_wrapper)/share/mola_traj_lo_wrapper/mola-cli-launchs/trajlo_from_oxford_spires.yaml
+#
+# Optional overrides:
+#   MOLA_WITH_GUI=false            -- headless mode
+#   MOLA_TIME_WARP=1.0             -- playback speed factor
+#   MOLA_QUIT_ON_DATASET_END=true  -- exit when the bag(s) end
+#   MOLA_MAX_DURATION_SEC=30       -- replay only the first N seconds
+# -----------------------------------------------------------------------------
+
+modules:
+  # =====================
+  # MolaViz / MolaVizImGui
+  # =====================
+  - name: viz
+    type: ${MOLA_GUI_MODULE|mola::MolaVizImGui}
+    enabled: ${MOLA_WITH_GUI|true}
+    verbosity_level: "${MOLA_VERBOSITY_MOLA_VIZ|INFO}"
+    params:
+      imgui_app_name: trajlo_oxford_spires
+
+  # =====================
+  # Rosbag2Dataset (Oxford Spires)
+  # =====================
+  - name: dataset_input
+    type: mola::Rosbag2Dataset
+    verbosity_level: "${MOLA_VERBOSITY_ROSBAG2|INFO}"
+    execution_rate: 50 # Hz
+    quit_mola_app_on_dataset_end: ${MOLA_QUIT_ON_DATASET_END|false}
+
+    gui_preview_sensors:
+      - raw_sensor_label: "${MOLA_LIDAR_NAME|lidar}"
+        decimation: 1
+        enabled: ${MOLA_WITH_GUI|true}
+        win_pos: 5 5 400 400
+
+    params:
+      # Filled in by the mola-trajlo-gui-oxford-spires wrapper script, one
+      # entry per ros2bag directory. Empty slots are silently skipped:
+      rosbag_filename:
+        - ${OXFORD_SPIRES_BAG_0}
+        - ${OXFORD_SPIRES_BAG_1|}
+        - ${OXFORD_SPIRES_BAG_2|}
+        - ${OXFORD_SPIRES_BAG_3|}
+        - ${OXFORD_SPIRES_BAG_4|}
+        - ${OXFORD_SPIRES_BAG_5|}
+
+      base_link_frame_id: "${MOLA_TF_BASE_LINK|base_link}"
+      time_warp_scale: ${MOLA_TIME_WARP|1.0}
+      start_paused: ${MOLA_DATASET_START_PAUSED|false}
+      max_duration_sec: ${MOLA_MAX_DURATION_SEC|0}
+
+      sensors:
+        - topic: "${MOLA_LIDAR_TOPIC|/hesai/pandar}"
+          type: CObservationPointCloud
+          sensorLabel: "${MOLA_LIDAR_NAME|lidar}"
+          # T_base_lidar, from the dataset's sensor.yaml:
+          fixed_sensor_pose: "0 0 0.124 180 0 0"
+          use_fixed_sensor_pose: true
+
+  # =====================
+  # Traj-LO odometry
+  # =====================
+  - name: lidar_odom
+    type: mola::TrajLoOdometry
+    verbosity_level: "${MOLA_VERBOSITY_MOLA_LO|INFO}"
+    raw_data_source: "dataset_input"
+    params: "${MOLA_ODOMETRY_PIPELINE_YAML|../pipelines/trajlo-oxford-spires.yaml}"

@@ -1,0 +1,60 @@
+# -----------------------------------------------------------------------------
+# Traj-LO algorithm parameters for the GrandTour dataset (ANYmal-D legged
+# robot, Hesai LiDAR payload).
+#
+# Starting point is trajlo-oxford-spires.yaml's tuning; no GrandTour-specific
+# retuning has been done yet.
+#
+# Traj-LO is LiDAR-only, so none of that dataset's IMU streams are used and no
+# IMU extrinsic is needed here -- unlike the DLIO and Fast-LIO2 wrappers, which
+# have to carry one extracted from the rig's /tf_static. The LiDAR pose itself
+# comes from the mission's own /tf_static via the launch file.
+# -----------------------------------------------------------------------------
+
+lidar_sensor_label: "lidar"
+
+# Identity, matching the DLIO wrapper on this dataset: poses are reported in
+# the LiDAR frame.
+baselink2lidar_pose_str: "0 0 0 0 0 0"
+
+# The GrandTour LiDAR stream used here (points_undistorted) is already deskewed
+# by the dataset provider. Traj-LO's continuous-time estimation still runs on
+# it: the segment poses are then interpolating a sweep that no longer moves
+# within itself, which is harmless but means the method's main advantage is not
+# being exercised. Running it against the raw (distorted) topic instead is the
+# more informative comparison, and is the reason the topic is a launch-file
+# variable.
+fallback_scan_period: 0.1
+
+time_offset: 0.0
+
+init_interval: ${TRAJLO_INIT_INTERVAL|3e8}
+seg_interval: ${TRAJLO_SEG_INTERVAL|4e7}
+seg_num: ${TRAJLO_SEG_NUM|3}
+kinematic_constrain: ${TRAJLO_KINEMATIC_CONSTRAIN|2.0}
+init_pose_weight: 1e9
+converge_thresh: 0.001
+max_iterations: ${TRAJLO_MAX_ITERATIONS|25}
+
+ds_size: ${TRAJLO_DS_SIZE|0.4}
+voxel_size: ${TRAJLO_VOXEL_SIZE|0.4}
+max_voxel_num: 20
+planer_thresh: 0.1
+max_range: ${TRAJLO_MAX_RANGE|100.0}
+
+# A legged robot carries its own structure within the first metre, same
+# situation as the handheld rigs.
+min_range: ${TRAJLO_MIN_RANGE|1.0}
+
+# --- Visualization ---
+show_trajectory: true
+show_map: true
+camera_follows_vehicle: true
+current_pose_corner_size: 1.0
+map_point_size: 2.0
+map_update_decimation: 25
+map_point_decimation: 4
+
+# --- Estimated trajectory output ---
+save_trajectory_to_file: ${MOLA_SAVE_TRAJECTORY|false}
+trajectory_output_file: ${MOLA_TUM_TRAJECTORY_OUTPUT|'estimated_trajectory.tum'}

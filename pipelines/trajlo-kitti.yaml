@@ -1,0 +1,64 @@
+# -----------------------------------------------------------------------------
+# Traj-LO algorithm parameters for the KITTI odometry benchmark (Velodyne
+# HDL-64E at 10 Hz, car-mounted).
+#
+# Two things about KITTI matter more for Traj-LO than for the other wrappers:
+#
+# - **No per-point time field.** The odometry benchmark's .bin clouds carry
+#   only XYZI, so the adapter falls back to synthesizing each point's time from
+#   its azimuth over `fallback_scan_period` (it logs that it did so, at INFO,
+#   on the first scan). For a continuous-time method that is the input it
+#   segments on, so the synthesized order has to be right; it is only an
+#   approximation of the real firing sequence.
+# - **The clouds are provider-deskewed.** KITTI's published scans are already
+#   motion-compensated, so the sub-scan trajectory Traj-LO estimates within a
+#   sweep has little left to correct. Numbers from this pipeline measure the
+#   registration and windowed optimization, not the continuous-time deskewing.
+#
+# No IMU is needed or used, which is one place where Traj-LO fits KITTI better
+# than the LiDAR-inertial methods: the odometry sequences ship no IMU stream at
+# all, and mola-dlio-cli has to synthesize one.
+# -----------------------------------------------------------------------------
+
+lidar_sensor_label: "lidar"
+
+# KITTI's ground truth is given in the left camera's frame; the standard
+# practice in this suite is to evaluate LiDAR-frame trajectories against it
+# with an alignment, so this stays identity.
+baselink2lidar_pose_str: "0 0 0 0 0 0"
+
+fallback_scan_period: 0.1
+
+time_offset: 0.0
+
+init_interval: ${TRAJLO_INIT_INTERVAL|3e8}
+seg_interval: ${TRAJLO_SEG_INTERVAL|4e7}
+seg_num: ${TRAJLO_SEG_NUM|3}
+kinematic_constrain: ${TRAJLO_KINEMATIC_CONSTRAIN|2.0}
+init_pose_weight: 1e9
+converge_thresh: 0.001
+max_iterations: ${TRAJLO_MAX_ITERATIONS|25}
+
+# Outdoor driving: coarser voxels and the full sensor range, matching what the
+# other wrappers use for KITTI.
+ds_size: ${TRAJLO_DS_SIZE|0.5}
+voxel_size: ${TRAJLO_VOXEL_SIZE|0.5}
+max_voxel_num: 20
+planer_thresh: 0.1
+max_range: ${TRAJLO_MAX_RANGE|100.0}
+
+# The car's own roof/body is inside ~2 m of the Velodyne.
+min_range: ${TRAJLO_MIN_RANGE|2.0}
+
+# --- Visualization ---
+show_trajectory: true
+show_map: true
+camera_follows_vehicle: true
+current_pose_corner_size: 2.0
+map_point_size: 2.0
+map_update_decimation: 25
+map_point_decimation: 4
+
+# --- Estimated trajectory output ---
+save_trajectory_to_file: ${MOLA_SAVE_TRAJECTORY|false}
+trajectory_output_file: ${MOLA_TUM_TRAJECTORY_OUTPUT|'estimated_trajectory.tum'}

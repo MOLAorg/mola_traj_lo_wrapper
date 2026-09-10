@@ -1,0 +1,64 @@
+# -----------------------------------------------------------------------------
+#                        SLAM system definition for MOLA
+# This file defines:
+# Traj-LO odometry (see mola::TrajLoOdometry) from the KITTI odometry
+# benchmark, via mola::KittiOdometryDataset.
+#
+# Traj-LO is LiDAR-only, which fits KITTI: the odometry sequences ship no IMU
+# stream, so no synthetic-IMU workaround is needed here (mola-dlio-cli has one
+# because DLIO cannot run without an IMU).
+#
+# Usage:
+#   export KITTI_BASE_DIR=/path/to/kitti/dataset   # holding sequences/00/...
+#   mola-cli $(ros2 pkg prefix mola_traj_lo_wrapper)/share/mola_traj_lo_wrapper/mola-cli-launchs/trajlo_from_kitti.yaml
+#
+# Optional overrides:
+#   KITTI_SEQ=00                    -- sequence number
+#   MOLA_WITH_GUI=false             -- headless mode
+#   MOLA_QUIT_ON_DATASET_END=true   -- exit when the sequence ends
+# -----------------------------------------------------------------------------
+
+modules:
+  # =====================
+  # MolaViz / MolaVizImGui
+  # =====================
+  - name: viz
+    type: ${MOLA_GUI_MODULE|mola::MolaVizImGui}
+    enabled: ${MOLA_WITH_GUI|true}
+    verbosity_level: "${MOLA_VERBOSITY_MOLA_VIZ|INFO}"
+    params:
+      imgui_app_name: trajlo_kitti
+
+  # =====================
+  # KittiOdometryDataset
+  # =====================
+  - name: dataset_input
+    type: mola::KittiOdometryDataset
+    verbosity_level: "${MOLA_VERBOSITY_KITTI|INFO}"
+    execution_rate: 20 # Hz
+    quit_mola_app_on_dataset_end: ${MOLA_QUIT_ON_DATASET_END|false}
+
+    gui_preview_sensors:
+      - raw_sensor_label: lidar
+        decimation: 1
+        enabled: ${MOLA_WITH_GUI|true}
+        win_pos: 5 5 400 400
+
+    params:
+      base_dir: ${KITTI_BASE_DIR}
+      sequence: "${KITTI_SEQ|00}"
+      time_warp_scale: ${MOLA_TIME_WARP|1.0}
+      clouds_as_organized_points: false
+      publish_lidar: true
+      publish_image_0: false
+      publish_image_1: false
+      publish_ground_truth: true
+
+  # =====================
+  # Traj-LO odometry
+  # =====================
+  - name: lidar_odom
+    type: mola::TrajLoOdometry
+    verbosity_level: "${MOLA_VERBOSITY_MOLA_LO|INFO}"
+    raw_data_source: "dataset_input"
+    params: "${MOLA_ODOMETRY_PIPELINE_YAML|../pipelines/trajlo-kitti.yaml}"
