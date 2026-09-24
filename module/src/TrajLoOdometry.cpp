@@ -21,9 +21,9 @@
 #include <mrpt/core/lock_helper.h>
 #include <mrpt/img/color_maps.h>
 #include <mrpt/obs/CObservationPointCloud.h>
-#include <mrpt/opengl/CPointCloudColoured.h>
-#include <mrpt/opengl/CSetOfObjects.h>
-#include <mrpt/opengl/stock_objects.h>
+#include <mrpt/viz/CPointCloudColoured.h>
+#include <mrpt/viz/CSetOfObjects.h>
+#include <mrpt/viz/stock_objects.h>
 #include <traj_lo_core/TrajLoCore.h>
 
 #include <sstream>
@@ -293,9 +293,9 @@ void TrajLoOdometry::updateVisualization(
   }
 
   if (visualization_params_.current_pose_corner_size > 0) {
-    auto glVehicle = mrpt::opengl::CSetOfObjects::Create();
+    auto glVehicle = mrpt::viz::CSetOfObjects::Create();
     glVehicle->insert(
-      mrpt::opengl::stock_objects::CornerXYZ(visualization_params_.current_pose_corner_size));
+      mrpt::viz::stock_objects::CornerXYZ(visualization_params_.current_pose_corner_size));
     glVehicle->setPose(lidarPose);
     visualizer_->update_3d_object("trajlo/vehicle", glVehicle);
   }
@@ -318,12 +318,12 @@ void TrajLoOdometry::updateVisualization(
 void TrajLoOdometry::updateVisualizationPath(const mrpt::poses::CPose3D & lidarPose)
 {
   if (!visualization_params_.show_trajectory) {
-    visualizer_->update_3d_object("trajlo/path", mrpt::opengl::CSetOfObjects::Create());
+    visualizer_->update_3d_object("trajlo/path", mrpt::viz::CSetOfObjects::Create());
     return;
   }
 
   if (!gl_estimated_path_) {
-    gl_estimated_path_ = mrpt::opengl::CSetOfLines::Create();
+    gl_estimated_path_ = mrpt::viz::CSetOfLines::Create();
     gl_estimated_path_->setColor_u8(0x20, 0xa0, 0x20, 0xff);
   }
 
@@ -334,15 +334,15 @@ void TrajLoOdometry::updateVisualizationPath(const mrpt::poses::CPose3D & lidarP
     gl_estimated_path_->appendLineStrip(t);
   }
 
-  auto pathGrp = mrpt::opengl::CSetOfObjects::Create();
-  pathGrp->insert(mrpt::opengl::CSetOfLines::Create(*gl_estimated_path_));
+  auto pathGrp = mrpt::viz::CSetOfObjects::Create();
+  pathGrp->insert(mrpt::viz::CSetOfLines::Create(*gl_estimated_path_));
   visualizer_->update_3d_object("trajlo/path", pathGrp);
 }
 
 void TrajLoOdometry::updateVisualizationMap()
 {
   if (!visualization_params_.show_map) {
-    visualizer_->update_3d_object("trajlo/map", mrpt::opengl::CSetOfObjects::Create());
+    visualizer_->update_3d_object("trajlo/map", mrpt::viz::CSetOfObjects::Create());
     return;
   }
 
@@ -359,14 +359,14 @@ void TrajLoOdometry::updateVisualizationMap()
 
   const auto pointsMap = toMrptPointsMap(*mapPts);
 
-  auto glCloud = mrpt::opengl::CPointCloudColoured::Create();
+  auto glCloud = mrpt::viz::CPointCloudColoured::Create();
   glCloud->loadFromPointsMap(pointsMap.get());
   glCloud->setPointSize(visualization_params_.map_point_size);
 
   const auto bbox = pointsMap->boundingBox();
   glCloud->recolorizeByCoordinate(bbox.min.z, bbox.max.z, 2 /*Z*/, mrpt::img::TColormap::cmJET);
 
-  auto grp = mrpt::opengl::CSetOfObjects::Create();
+  auto grp = mrpt::viz::CSetOfObjects::Create();
   grp->insert(glCloud);
   visualizer_->update_3d_object("trajlo/map", grp);
 }

@@ -21,9 +21,9 @@
 #include <mola_kernel/interfaces/FrontEndBase.h>
 #include <mola_kernel/interfaces/LocalizationSourceBase.h>
 #include <mola_kernel/interfaces/MapSourceBase.h>
-#include <mrpt/opengl/CSetOfLines.h>
 #include <mrpt/poses/CPose3D.h>
 #include <mrpt/poses/CPose3DInterpolator.h>
+#include <mrpt/viz/CSetOfLines.h>
 
 #include <atomic>
 #include <memory>
@@ -172,7 +172,7 @@ private:
     int map_point_decimation = 4;
   } visualization_params_;
 
-  mrpt::opengl::CSetOfLines::Ptr gl_estimated_path_;
+  mrpt::viz::CSetOfLines::Ptr gl_estimated_path_;
   /// The last map snapshot handed to the 3-D scene; the estimator refreshes
   /// the snapshot far less often than poses come out, so redrawing is skipped
   /// while it is still the same one.
